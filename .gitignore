@@ -4,6 +4,7 @@ __pycache__/
 .fleetbase-dev-links.json
 .env
 .env.backup
+.env.prod
 .phpunit.result.cache
 .pnpm-store
 .tool-versions

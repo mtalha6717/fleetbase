@@ -1,0 +1,6 @@
+{
+    "API_HOST": "https://fleetbase-api.cybroscloud.com",
+    "SOCKETCLUSTER_HOST": "fleetbase-api.cybroscloud.com",
+    "SOCKETCLUSTER_PORT": "443",
+    "SOCKETCLUSTER_SECURE": "true"
+}
