@@ -1,4 +1,5 @@
-# Production on Dokploy. MySQL and Redis run on the EC2 host, not in Docker.
+# Production on Dokploy. MySQL 8.0 runs in this stack (host port 3307, localhost only;
+# the host's MariaDB keeps 3306). Redis runs on the EC2 host.
 #
 # Environment: paste .env.prod into Dokploy's Environment tab (Dokploy writes it to .env).
 # Domains (HTTPS on, strip path off):
@@ -12,6 +13,9 @@ x-api: &api
   restart: unless-stopped
   extra_hosts:
     - "host.docker.internal:host-gateway"
+  depends_on:
+    database:
+      condition: service_healthy
   env_file: .env
   volumes:
     # Named volume: Dokploy re-clones the repo dir on each deploy, a bind mount there would lose uploads.
@@ -23,6 +27,7 @@ x-api: &api
     APP_URL: https://fleetbase-api.cybroscloud.com
     CONSOLE_HOST: https://fleetbase-console.cybroscloud.com
     SESSION_DOMAIN: fleetbase-api.cybroscloud.com
+    DATABASE_URL: mysql://root:${DB_PASSWORD:?set DB_PASSWORD}@database:3306/fleetbase
     QUEUE_CONNECTION: redis
     CACHE_DRIVER: redis
     CACHE_PATH: /fleetbase/api/storage/framework/cache
@@ -35,6 +40,25 @@ x-api: &api
     SOCKETCLUSTER_ORIGIN: https://fleetbase-console.cybroscloud.com
 
 services:
+  # Fleetbase is tested on MySQL 8.0; its migrations break on MariaDB.
+  database:
+    image: mysql:8.0-oracle
+    restart: unless-stopped
+    # Binlog off, as in docker-compose.yml: telematics ingest grows it to hundreds of GB.
+    command: ["mysqld", "--skip-log-bin"]
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_DATABASE: fleetbase
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   application:
     <<: *api
 
@@ -63,4 +87,5 @@ services:
       - ./console/fleetbase.config.prod.json:/usr/share/nginx/html/fleetbase.config.json:ro
 
 volumes:
+  mysql:
   storage:
